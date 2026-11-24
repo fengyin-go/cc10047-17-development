@@ -6,6 +6,22 @@
         <p class="page-desc">{{ meta.desc }}</p>
       </div>
       <div class="page-actions">
+        <RouterLink
+          v-if="meta.key === 'stream_ingest'"
+          class="btn primary"
+          to="/stream_ingest/correction"
+          data-testid="open-correction"
+        >
+          拒收数据批量补交
+        </RouterLink>
+        <RouterLink
+          v-if="meta.key === 'stream_quality'"
+          class="btn primary"
+          to="/stream_ingest/correction"
+          data-testid="open-correction-todos"
+        >
+          质量纠正待办与版本详情
+        </RouterLink>
         <button class="btn primary" data-testid="open-create" type="button" @click="openCreate">
           登记{{ meta.entity }}
         </button>

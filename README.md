@@ -46,6 +46,34 @@ npm run dev
 前端默认监听 `http://127.0.0.1:5175/`，dev server 不会自动打开浏览器，
 需要自己访问。`/api` 由 vite 代理到后端 `http://127.0.0.1:8011`。
 
+## 拒收数据批量补交（流式摄入）
+
+流式摄入的拒收行现在可以按分区偏移批量读取并重放，不再需要逐条补录。
+
+- 后端：`backend/app/services/ingest_correction.py`（领域逻辑）
+  + `backend/app/routers/ingest_correction.py`（接口，前缀 `/api/ingest-correction`）
+- 前端：`frontend/src/views/IngestCorrectionView.vue` +
+  `frontend/src/api/ingest-correction.ts`
+- 入口：侧边栏“拒收补交”、流式摄入页“拒收数据批量补交”、流质量校验页“质量纠正待办与版本详情”
+- 页面路线：`/stream_ingest/correction`（批量补交 / 检查点恢复 / 版本详情），
+  版本详情 `GET /api/ingest-correction/versions/{id}`，检查点 `GET /api/ingest-correction/checkpoint`
+
+核心规则：
+
+1. 拒收行以 `partition + offset` 为唯一身份，同一原偏移最多只有一个有效纠正结果；
+   重复重放只累计 `duplicate_count`，不新建纠正记录。
+2. 同一纠正批次携带幂等键（未给时按分区偏移集合推导），并发提交只生效一次，
+   其余提交计入 `duplicate_submissions`。
+3. 逐行确认只要求被确认的那一行已补齐；整批确认要求两条都补齐后一起放行，
+   未补齐时记录一次冲突、不产生确认边界；两种确认都会写入 `boundaries`。
+4. 同业务键的新版本按新偏移独立建档（`kind=同业务键新版本`、`same_key_of` 指回原拒收），
+   不能替代原拒绝偏移的纠正结果。
+5. 检查点按逐行回执重排每个分区的 `next_read_offset`，未确认偏移不会因新版本到达而跳过。
+
+演示数据：p1 偏移 101 缺金额、p2 偏移 205 缺日期。
+`POST /api/ingest-correction/scenario?mode=逐行确认|整批确认` 可按题面顺序跑完整场景，
+返回逐步行/整批确认边界、质量纠正待办、版本详情与检查点核对结果。
+
 ## 业务模块
 
 | 模块 | 目录 | 业务对象 | 主要字段 |
